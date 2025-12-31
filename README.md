@@ -1,259 +1,247 @@
 # Mazo Beam Parser
 
-A powerful web application for parsing resumes and job descriptions, matching candidates to positions, and generating comprehensive matching reports.
+A powerful resume-job description matching system that uses AI to parse documents and match candidates with job positions based on skills and experience.
 
-## 🚀 Features
+## 🌟 Features
 
-- **Document Parsing**: Upload and parse PDF/DOCX resumes and job descriptions
-- **Intelligent Matching**: Automatically match candidates to job descriptions based on skills and experience
-- **Report Generation**: Export detailed matching reports to Excel
-- **History Management**: View and manage your parsing history
-- **User Management**: Admin panel for user management (admin role required)
-- **Secure Authentication**: Built-in authentication with role-based access control
+- **Intelligent Parsing**: Automatically extracts information from resumes and job descriptions
+- **AI-Powered Matching**: Uses Google's Gemini AI for accurate document parsing
+- **Skills Matching**: Advanced algorithm to match candidate skills with job requirements
+- **Batch Processing**: Upload up to 10 job descriptions and 25 resumes simultaneously
+- **Excel Reports**: Generate detailed matching reports in Excel format
+- **History Tracking**: Save and review previous parsing sessions
+- **User Management**: Admin panel for managing user access (admin users only)
+- **Real-time Updates**: Automatic UI refresh with latest data
 
 ## 📋 Prerequisites
 
-- Node.js 18+ or Bun
-- npm, yarn, or bun package manager
-- Supabase account and project
-- OpenAI API key (for document parsing)
+Before you begin, ensure you have:
 
-## 🛠️ Installation
+- **Node.js** (v18 or higher)
+- **npm** or **yarn**
+- **Supabase Account** (for database and authentication)
+- **Google Gemini API Key** (for document parsing)
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd mazoparser-main
-   ```
+## 🚀 Quick Start
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   bun install
-   ```
+### 1. Clone the Repository
 
-3. **Set up environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+```bash
+git clone <your-repo-url>
+cd mazoparser-main
+```
 
-4. **Configure Supabase**
-   - Set up your Supabase project
-   - Run the database migrations (see `database_queries.sql`)
-   - Configure Row Level Security (RLS) policies
-   - Set up the Edge Function for document parsing
+### 2. Install Dependencies
 
-5. **Configure Edge Function**
-   
-   In your Supabase project, set the environment variable for the Edge Function:
-   ```bash
-   supabase secrets set GEMINI_API_KEY=your_gemini_api_key
-   ```
+```bash
+npm install
+```
 
-## 🚀 Getting Started
+### 3. Configure Environment Variables
 
-1. **Start the development server**
-   ```bash
-   npm run dev
-   # or
-   bun dev
-   ```
+Create a `.env` file in the project root:
 
-2. **Open your browser**
-   - Navigate to `http://localhost:5173`
-   - You'll be redirected to the login page
+```bash
+# Gemini AI Configuration
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
 
-3. **Login**
-   - Use your Supabase user credentials
-   - If you're an admin, you'll have access to the User Management panel
+# Get your Gemini API key from:
+# https://aistudio.google.com/app/apikey
+```
+
+**Important:** Replace `your_gemini_api_key_here` with your actual Gemini API key.
+
+### 4. Start the Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:8080`
 
 ## 📖 Usage Guide
 
-### Uploading Job Descriptions
+### Step 1: Login
 
-1. Click on "Upload Job Descriptions"
-2. Select PDF or DOCX files (maximum 10 files)
+1. Open the application in your browser
+2. Sign in with your credentials
+3. If you're a new user, sign up first
+
+### Step 2: Upload Job Descriptions
+
+1. Click on **"Upload Job Descriptions"** section
+2. Select PDF or DOCX files (up to 10 files)
 3. Wait for parsing to complete
-4. Review the parsed job descriptions
+4. Currently uploaded count is displayed
 
-### Uploading Resumes
+### Step 3: Upload Resumes
 
-1. Click on "Upload Resumes"
-2. Select PDF or DOCX files (maximum 25 files)
+1. Click on **"Upload Resumes"** section
+2. Select PDF or DOCX files (up to 25 files)
 3. Wait for parsing to complete
-4. View candidates with automatic matching percentages
+4. Currently uploaded count is displayed
 
-### Generating Reports
+### Step 4: Generate Report
 
-1. Upload at least one job description and one resume
-2. Click "Generate Report"
-3. The system will:
-   - Save the parsing history
-   - Generate an Excel report
-   - Clear the current uploads
+1. Once both job descriptions and resumes are uploaded, the **"Generate Report"** button appears
+2. Click the button to generate a matching report
+3. An Excel file will be downloaded automatically
+4. The report includes:
+   - Candidate details (name, email, phone)
+   - Skills matching percentage
+   - Experience qualification status
+   - Best matching position for each candidate
 
-### Viewing History
+### Step 5: View History
 
-- Scroll down to see "Recent Reports"
-- Click on any report to download it again
-- Delete reports using the trash icon
+1. Scroll to the **"Recent Reports"** section
+2. View all previously generated reports
+3. Click on any report to re-download it
+4. Delete old reports using the trash icon
 
-### Admin Features
+## 📊 Report Format
 
-If you have admin privileges:
-- Access the "User Management" section
-- Add new users
-- Delete users
-- View all user profiles and roles
+Generated reports include the following columns:
 
-## 📁 Project Structure
+| Column | Description |
+|--------|-------------|
+| Sl No | Serial number |
+| JD Name | Job description title |
+| Resume Name | Original resume filename |
+| Candidate Name | Extracted candidate name |
+| Email | Candidate email address |
+| Phone Number | Candidate phone number |
+| Candidate Experience | Years of experience |
+| JD Experience | Required years of experience |
+| Candidate Skills | List of candidate skills |
+| JD Skills | Required skills for the position |
+| Skills Match % | Percentage of matching skills |
+| Result Based on Skill | Qualified/Not Qualified based on skills |
+| Result Based on Experience | Qualified/Not Qualified based on experience |
 
-```
-mazoparser-main/
-├── src/
-│   ├── components/          # React components
-│   │   ├── ui/             # UI component library (shadcn/ui)
-│   │   ├── CandidateTable.tsx
-│   │   ├── DocumentParser.tsx
-│   │   ├── FileUpload.tsx
-│   │   ├── JobDescription.tsx
-│   │   ├── MatchingVisuals.tsx
-│   │   ├── ParsingHistory.tsx
-│   │   └── UserManagement.tsx
-│   ├── pages/              # Page components
-│   │   ├── Auth.tsx
-│   │   ├── Index.tsx
-│   │   └── NotFound.tsx
-│   ├── utils/              # Utility functions
-│   │   ├── parser/         # Document parsing utilities
-│   │   ├── colorCoding.ts
-│   │   └── geminiParser.ts
-│   ├── integrations/       # External integrations
-│   │   └── supabase/       # Supabase client and types
-│   └── types/              # TypeScript type definitions
-├── supabase/
-│   └── functions/          # Edge Functions
-│       └── parse-document/  # Document parsing function
-└── public/                 # Static assets
-```
+## 🎯 Matching Algorithm
 
-## 🔧 Configuration
+### Skills Matching
 
-### File Upload Limits
+The system uses a sophisticated multi-level matching algorithm:
 
-- Maximum Job Descriptions: 10
-- Maximum Resumes: 25
-- Maximum Batch Size: 100 files per upload
+1. **Exact Match**: Direct skill name matches
+2. **Partial Match**: Multi-word skills with common components
+3. **Substantial Match**: Skills that are substrings of each other
+4. **Technology Equivalents**: Recognizes common variations (e.g., "React" = "React.js")
 
-### Supported File Formats
+### Qualification Criteria
 
-- PDF (`.pdf`)
-- Microsoft Word (`.doc`, `.docx`)
+- **Skills**: 
+  - 80-100%: Highly Qualified
+  - 50-79%: Qualified
+  - Below 50%: Not Qualified
 
-## 🎨 Features in Detail
+- **Experience**:
+  - Candidate experience ≥ Required experience: Qualified
+  - Candidate experience < Required experience: Not Qualified
 
-### Skill Matching Algorithm
+## 👥 User Roles
 
-The application uses an intelligent matching algorithm that:
-- Performs exact skill matches
-- Handles partial matches (e.g., "AWS Lambda" matches "AWS")
-- Recognizes technology equivalents (e.g., "SQL" matches "MySQL", "PostgreSQL")
-- Calculates match percentages based on required vs. candidate skills
+### Regular User
+- Upload and parse documents
+- Generate matching reports
+- View own history
 
-### Color Coding
+### Admin User
+- All regular user features
+- Access to User Management panel
+- View and manage all users
 
-Results are color-coded for quick identification:
-- 🟢 **Green (Select)**: 70%+ match
-- 🟡 **Yellow (Hold)**: 40-69% match
-- 🔴 **Red (Reject)**: Below 40% match
-
-### Experience Matching
-
-- Candidates are evaluated based on years of experience
-- Results show "Qualified" or "Not Qualified" based on experience requirements
-
-## 🐛 Troubleshooting
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-1. **Parsing fails**
-   - Check that your OpenAI API key is correctly set in Supabase Edge Function secrets
-   - Ensure files are not corrupted
-   - Verify file format is supported
+#### Issue: "API key not valid" Error
 
-2. **Authentication errors**
-   - Verify Supabase credentials in `.env` file
-   - Check that RLS policies are properly configured
-   - Ensure user exists in Supabase Auth
+**Solution:**
+1. Check your `.env` file has a valid Gemini API key
+2. Get a new key from https://aistudio.google.com/app/apikey
+3. Restart the development server after updating `.env`
 
-3. **Upload limits exceeded**
-   - Check current count of uploaded files
-   - Remove existing files before uploading new ones
-   - Respect the maximum limits (10 JDs, 25 resumes)
+#### Issue: Parsing Takes Too Long
 
-4. **Report generation fails**
-   - Ensure both job descriptions and resumes are uploaded
-   - Check browser console for errors
-   - Verify user is authenticated
+**Solution:**
+- Large files may take longer to process
+- Ensure stable internet connection
+- Try uploading fewer files at once
 
-## 📝 Scripts
+#### Issue: History Not Showing
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run build:dev` - Build for development
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+**Solution:**
+1. Check browser console for errors
+2. Refresh the page
+3. History auto-refreshes every 5 seconds
 
-## 🔒 Security
+#### Issue: Cannot Upload Files
 
-- Row Level Security (RLS) enabled on all database tables
-- User data isolation (users can only see their own data)
-- Role-based access control (admin/user roles)
-- Secure authentication via Supabase Auth
-- API keys stored securely in environment variables
+**Solution:**
+- Ensure files are PDF or DOCX format
+- Check file size (very large files may fail)
+- Verify you haven't exceeded the upload limit (10 JDs, 25 resumes)
 
-## 📊 Database
+## 🛡️ Security Features
 
-The application uses Supabase (PostgreSQL) with the following main tables:
-- `profiles` - User profiles
-- `user_roles` - User roles and permissions
-- `parsing_history` - Historical parsing records
+- **Row Level Security (RLS)**: Users can only access their own data
+- **JWT Authentication**: Secure token-based authentication via Supabase
+- **Environment Variables**: Sensitive keys stored securely
+- **Input Validation**: File type and size validation
 
-See `database_queries.sql` for complete database schema and queries.
+## 🔄 Updates and Maintenance
 
-## 🤝 Contributing
+### Clearing Cache
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+If you experience issues after an update:
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Database Migrations
+
+Database migrations are automatically applied. If you need to check migration status, refer to the technical documentation.
+
+## 📝 File Format Support
+
+### Supported Input Formats
+- **PDF** (.pdf)
+- **Microsoft Word** (.doc, .docx)
+
+### Output Format
+- **Microsoft Excel** (.xlsx)
+
+## 🤝 Support
+
+For issues, questions, or contributions:
+1. Check the troubleshooting section
+2. Review the technical documentation
+3. Contact your system administrator
 
 ## 📄 License
 
-This project is private and proprietary.
+[Your License Here]
 
-## 📞 Support
+## 🙏 Acknowledgments
 
-For issues and questions:
-- Check the troubleshooting section
-- Review the technical documentation
-- Contact the development team
-
-## 🗺️ Roadmap
-
-- [ ] Support for more file formats
-- [ ] Advanced filtering and search
-- [ ] Bulk operations
-- [ ] Email notifications
-- [ ] API endpoints for external integrations
-- [ ] Enhanced analytics dashboard
+- **Supabase**: Backend and authentication
+- **Google Gemini AI**: Document parsing
+- **React**: Frontend framework
+- **Tailwind CSS**: Styling
+- **shadcn/ui**: UI components
 
 ---
 
-**Built with using React, TypeScript, Supabase, and Gemini**
+**Version:** 1.0.0  
+**Last Updated:** December 31, 2025
+
+For technical details, see [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)
 

@@ -5,17 +5,13 @@
 1. [Architecture Overview](#architecture-overview)
 2. [Technology Stack](#technology-stack)
 3. [Database Schema](#database-schema)
-4. [API Reference](#api-reference)
-5. [Component Architecture](#component-architecture)
-6. [Data Flow](#data-flow)
-7. [Authentication & Authorization](#authentication--authorization)
-8. [Document Parsing Pipeline](#document-parsing-pipeline)
-9. [Matching Algorithm](#matching-algorithm)
-10. [Performance Considerations](#performance-considerations)
-11. [Security Implementation](#security-implementation)
-12. [Deployment](#deployment)
-13. [Error Handling](#error-handling)
-14. [Testing Strategy](#testing-strategy)
+4. [Authentication & Authorization](#authentication--authorization)
+5. [API Integration](#api-integration)
+6. [Document Parsing Pipeline](#document-parsing-pipeline)
+7. [Matching Algorithm](#matching-algorithm)
+8. [Deployment](#deployment)
+9. [Troubleshooting](#troubleshooting)
+10. [Migration History](#migration-history)
 
 ---
 
@@ -25,71 +21,79 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (React)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Pages      │  │  Components  │  │    Utils     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ HTTPS/REST API
-                            │
-┌───────────────────────────┴─────────────────────────────────┐
-│                    Supabase Backend                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Auth API   │  │  Database     │  │ Edge Function│      │
-│  │              │  │  (PostgreSQL)│  │  (Deno)      │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            │ API Call
-                            │
-┌───────────────────────────┴─────────────────────────────────┐
-│                    OpenAI API                                │
-│              (Gemini 1.5 Flash for parsing)                  │
-└──────────────────────────────────────────────────────────────┘
+│                     Frontend (React + Vite)                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐   │
+│  │  File Upload │  │  Parsing UI  │  │  History View   │   │
+│  └──────────────┘  └──────────────┘  └─────────────────┘   │
+└───────────────────────┬─────────────────────────────────────┘
+                        │
+                        │ HTTP/REST
+                        │
+        ┌───────────────┴────────────────┐
+        │                                 │
+        ▼                                 ▼
+┌────────────────┐              ┌─────────────────┐
+│  Supabase      │              │  Gemini AI      │
+│  - Auth        │              │  - Parsing      │
+│  - PostgreSQL  │              │  - Extraction   │
+│  - Storage     │              │                 │
+│  - RLS         │              │                 │
+└────────────────┘              └─────────────────┘
 ```
 
 ### Application Flow
 
-1. **User Authentication**: Supabase Auth handles login/logout
-2. **File Upload**: Files uploaded via React Dropzone
-3. **Document Parsing**: Edge Function calls OpenAI API
-4. **Data Storage**: Parsed data stored in PostgreSQL
-5. **Matching**: Client-side algorithm matches candidates to positions
-6. **Report Generation**: Excel reports generated using XLSX library
+```
+User Login
+    ↓
+Upload Documents (JDs + Resumes)
+    ↓
+Parse with Gemini AI
+    ↓
+Extract Structured Data
+    ↓
+Calculate Skills Matching
+    ↓
+Generate Excel Report
+    ↓
+Save to History (Database)
+    ↓
+Display in UI
+```
 
 ---
 
 ## Technology Stack
 
 ### Frontend
-
-- **Framework**: React 18.3.1
-- **Language**: TypeScript 5.5.3
-- **Build Tool**: Vite 5.4.1
-- **Routing**: React Router DOM 6.26.2
-- **State Management**: TanStack Query (React Query) 5.56.2
-- **UI Library**: Radix UI + shadcn/ui components
-- **Styling**: Tailwind CSS 3.4.11
-- **Form Handling**: React Hook Form 7.53.0
-- **File Processing**: 
-  - `pdf-parse` 1.1.1 (PDF parsing)
-  - `mammoth` 1.9.0 (DOCX parsing)
-- **Export**: `xlsx` 0.18.5 (Excel generation)
-- **Date Handling**: `date-fns` 3.6.0
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Language**: TypeScript
+- **UI Library**: shadcn/ui
+- **Styling**: Tailwind CSS
+- **State Management**: TanStack Query (React Query)
+- **Routing**: React Router v6
+- **Form Handling**: React Hook Form
+- **Excel Generation**: SheetJS (xlsx)
+- **PDF Parsing**: pdf-parse
+- **DOCX Parsing**: mammoth
 
 ### Backend
+- **BaaS**: Supabase
+  - PostgreSQL Database
+  - Authentication (JWT)
+  - Row Level Security (RLS)
+  - Real-time subscriptions
 
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **Edge Functions**: Deno runtime
-- **AI Service**: OpenAI GPT-4o-mini
+### AI/ML
+- **Parsing Engine**: Google Gemini 2.5 Flash
+- **API**: Google Generative Language API
 
 ### Development Tools
-
-- **Linting**: ESLint 9.9.0
+- **Package Manager**: npm
 - **Type Checking**: TypeScript
-- **Package Manager**: npm/bun
+- **Code Quality**: ESLint
+- **Version Control**: Git
 
 ---
 
@@ -97,50 +101,88 @@
 
 ### Tables
 
-#### `profiles`
+#### 1. `profiles`
+
+Stores user profile information.
+
 ```sql
 CREATE TABLE public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Purpose**: Stores user profile information linked to Supabase Auth users.
+**Indexes:**
+- Primary Key: `id`
 
-**Relationships**:
-- One-to-one with `auth.users`
-- One-to-many with `user_roles`
-- One-to-many with `parsing_history`
+**Foreign Keys:**
+- `id` → `auth.users.id` (CASCADE DELETE)
 
-#### `user_roles`
+**RLS Policies:**
+- Users can view only their own profile
+- Auto-created via trigger on user signup
+
+---
+
+#### 2. `user_roles`
+
+Manages user roles (admin/user).
+
 ```sql
+CREATE TYPE app_role AS ENUM ('admin', 'user');
+
 CREATE TABLE public.user_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    role app_role DEFAULT 'user'::app_role,
-    created_at TIMESTAMPTZ DEFAULT now()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  role app_role DEFAULT 'user',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Purpose**: Manages user roles for authorization (admin/user).
+**Indexes:**
+- Primary Key: `id`
+- `idx_user_roles_user_id` on `user_id` (for performance)
 
-**Enum Values**: `'admin'`, `'user'`
+**Foreign Keys:**
+- `user_id` → `profiles.id` (CASCADE DELETE)
 
-#### `parsing_history`
+**RLS Policies:**
+- Admins can view all roles
+- Users can view only their own role
+- Only admins can insert/update roles
+
+---
+
+#### 3. `parsing_history`
+
+Stores parsing session history.
+
 ```sql
+CREATE TYPE document_type AS ENUM ('resume', 'job_description');
+
 CREATE TABLE public.parsing_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    document_type document_type NOT NULL,
-    parsed_content JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  document_type document_type NOT NULL,
+  parsed_content JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Purpose**: Stores historical parsing records with full parsed data.
+**Indexes:**
+- Primary Key: `id`
+- `idx_parsing_history_user_id` on `user_id` (for performance)
 
-**JSONB Structure**:
+**Foreign Keys:**
+- `user_id` → `profiles.id` (CASCADE DELETE)
+
+**RLS Policies:**
+- Users can view only their own history
+- Users can insert only with their own user_id
+- Users can delete only their own history
+
+**JSONB Structure (`parsed_content`):**
 ```typescript
 {
   jobDescriptions: Array<{
@@ -169,297 +211,49 @@ CREATE TABLE public.parsing_history (
 }
 ```
 
-### Functions
+---
 
-#### `is_admin(user_id UUID) → BOOLEAN`
+### Database Functions
+
+#### `handle_new_user()`
+
+Automatically creates a profile when a new user signs up.
+
 ```sql
-CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email)
+  VALUES (NEW.id, NEW.email)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-**Purpose**: Checks if a user has admin role.
-
-**Usage**: `SELECT public.is_admin('user-uuid');`
-
-### Indexes
-
-- `profiles_pkey` - Primary key on `profiles.id`
-- `user_roles_pkey` - Primary key on `user_roles.id`
-- `parsing_history_pkey` - Primary key on `parsing_history.id`
-
-### Row Level Security (RLS)
-
-All tables have RLS enabled. Policies ensure:
-- Users can only access their own data
-- Admins can access all data
-- Proper isolation between users
-
----
-
-## API Reference
-
-### Supabase Client
-
-**Location**: `src/integrations/supabase/client.ts`
-
-```typescript
-import { supabase } from '@/integrations/supabase/client';
+**Trigger:**
+```sql
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
 
-### Authentication Methods
+#### `is_admin()`
 
-#### `getSession()`
-```typescript
-const { data: { session }, error } = await supabase.auth.getSession();
-```
+Checks if the current user is an admin.
 
-#### `signInWithPassword({ email, password })`
-```typescript
-const { data, error } = await supabase.auth.signInWithPassword({
-  email: string,
-  password: string
-});
-```
-
-#### `signOut()`
-```typescript
-const { error } = await supabase.auth.signOut();
-```
-
-#### `getUser()`
-```typescript
-const { data: { user }, error } = await supabase.auth.getUser();
-```
-
-#### `onAuthStateChange(callback)`
-```typescript
-const { data: { subscription } } = supabase.auth.onAuthStateChange(
-  (event, session) => { /* handle change */ }
-);
-```
-
-### Database Queries
-
-#### Select Parsing History
-```typescript
-const { data, error } = await supabase
-  .from('parsing_history')
-  .select('*')
-  .eq('document_type', 'resume')
-  .eq('user_id', user.id)
-  .order('created_at', { ascending: false });
-```
-
-#### Insert Parsing History
-```typescript
-const { data, error } = await supabase
-  .from('parsing_history')
-  .insert({
-    document_type: 'resume',
-    parsed_content: { /* JSON object */ },
-    user_id: user.id
-  });
-```
-
-#### Delete Parsing History
-```typescript
-const { error } = await supabase
-  .from('parsing_history')
-  .delete()
-  .eq('id', recordId);
-```
-
-#### Select User Role
-```typescript
-const { data, error } = await supabase
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', user.id)
-  .maybeSingle();
-```
-
-### Edge Function API
-
-**Endpoint**: `https://[project-ref].supabase.co/functions/v1/parse-document`
-
-**Method**: `POST`
-
-**Headers**:
-```
-Authorization: Bearer [anon_key]
-Content-Type: application/json
-```
-
-**Request Body**:
-```typescript
-{
-  documentText: string;
-  documentType: 'resume' | 'jd';
-}
-```
-
-**Response**:
-```typescript
-// For Resume
-{
-  name: string;
-  email: string;
-  phone: string;
-  skills: string[];
-  experience: string;
-  education: string;
-}
-
-// For Job Description
-{
-  title: string;
-  skills: string[];
-  experience: string;
-  responsibilities: string[];
-}
-```
-
----
-
-## Component Architecture
-
-### Page Components
-
-#### `App.tsx`
-- Root component
-- Manages authentication state
-- Sets up routing
-- Configures React Query client
-
-#### `Auth.tsx`
-- Login page
-- Handles authentication
-- Session persistence
-
-#### `Index.tsx`
-- Main application page
-- File upload handling
-- Matching algorithm
-- Report generation
-- User role checking
-
-#### `NotFound.tsx`
-- 404 error page
-
-### Feature Components
-
-#### `DocumentParser.tsx`
-- Document parsing logic
-- Batch processing
-- Progress tracking
-- Error handling
-
-#### `FileUpload.tsx`
-- File upload UI
-- Drag and drop support
-- File validation
-- Progress indicators
-
-#### `CandidateTable.tsx`
-- Displays parsed candidates
-- Match percentages
-- Sorting and filtering
-- Color-coded results
-
-#### `JobDescription.tsx`
-- Displays job descriptions
-- Skills and requirements
-- Experience details
-
-#### `MatchingVisuals.tsx`
-- Visual representation of matches
-- Charts and graphs
-- Statistics display
-
-#### `ParsingHistory.tsx`
-- Historical records display
-- Report download
-- Record deletion
-- Auto-refresh (5s interval)
-
-#### `UserManagement.tsx`
-- User CRUD operations (admin only)
-- Role management
-- User listing
-
-### UI Components
-
-Located in `src/components/ui/`, built with Radix UI and shadcn/ui:
-- Buttons, Inputs, Tables
-- Dialogs, Alerts, Toasts
-- Forms, Cards, Badges
-- And 30+ other components
-
----
-
-## Data Flow
-
-### Document Upload Flow
-
-```
-1. User selects files
-   ↓
-2. FileUpload component validates files
-   ↓
-3. DocumentParser.processBatch() called
-   ↓
-4. For each file:
-   a. Extract text (PDF/DOCX)
-   b. Call Edge Function
-   c. Edge Function calls OpenAI API
-   d. Parse JSON response
-   ↓
-5. Update state with parsed data
-   ↓
-6. Trigger matching algorithm
-   ↓
-7. Display results in CandidateTable
-```
-
-### Matching Flow
-
-```
-1. Job descriptions uploaded
-   ↓
-2. Resumes uploaded
-   ↓
-3. For each candidate:
-   a. Calculate match for each JD
-   b. Find best matching position
-   c. Store position matches
-   ↓
-4. Update candidate state
-   ↓
-5. Render with color coding
-```
-
-### Report Generation Flow
-
-```
-1. User clicks "Generate Report"
-   ↓
-2. Validate data exists
-   ↓
-3. Get current user
-   ↓
-4. Insert into parsing_history
-   ↓
-5. Generate Excel report:
-   a. Create workbook
-   b. Add worksheet
-   c. Format columns
-   d. Apply color coding
-   ↓
-6. Download file
-   ↓
-7. Clear state
+```sql
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = (SELECT auth.uid())
+    AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
 ```
 
 ---
@@ -468,212 +262,319 @@ Located in `src/components/ui/`, built with Radix UI and shadcn/ui:
 
 ### Authentication Flow
 
-1. User enters credentials
-2. `signInWithPassword()` called
-3. Supabase Auth validates credentials
-4. Session token returned
-5. Session stored in browser
-6. `onAuthStateChange` listener updates app state
-7. Protected routes check session
+1. **User Registration:**
+   ```typescript
+   await supabase.auth.signUp({
+     email: 'user@example.com',
+     password: 'securePassword123'
+   });
+   // Trigger creates profile automatically
+   ```
 
-### Authorization
+2. **User Login:**
+   ```typescript
+   await supabase.auth.signInWithPassword({
+     email: 'user@example.com',
+     password: 'securePassword123'
+   });
+   ```
 
-**Role-Based Access Control (RBAC)**:
-- `admin`: Full access, user management
-- `user`: Standard access, own data only
+3. **Session Management:**
+   - JWT tokens stored in localStorage
+   - Auto-refresh on token expiry
+   - Session persists across page reloads
 
-**Implementation**:
-```typescript
-const { data: userRole } = useQuery({
-  queryKey: ['user-role'],
-  queryFn: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    return data?.role || null;
-  }
-});
+### Row Level Security (RLS)
+
+All tables have RLS enabled with optimized policies:
+
+**Optimization Applied:**
+```sql
+-- Before (re-evaluated per row)
+CREATE POLICY "policy_name" ON table_name
+FOR SELECT USING (auth.uid() = user_id);
+
+-- After (evaluated once)
+CREATE POLICY "policy_name" ON table_name
+FOR SELECT USING ((SELECT auth.uid()) = user_id);
 ```
 
-**Protected Routes**:
-- `/` - Requires authentication
-- `/auth` - Redirects if authenticated
-- User Management - Requires admin role
+### Security Best Practices
+
+1. **API Keys**: Stored in environment variables, never committed
+2. **Function Security**: SECURITY DEFINER with explicit `search_path`
+3. **Foreign Keys**: All have proper indexes for performance
+4. **RLS**: Prevents unauthorized data access at database level
+
+---
+
+## API Integration
+
+### Supabase Client Configuration
+
+**File:** `src/integrations/supabase/client.ts`
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = "https://pjwdugunungwndjykwus.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbG..."; // anon key
+
+export const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+```
+
+**Note:** Uses `anon` key (not `service_role`) for client-side security.
+
+### Gemini AI Integration
+
+**File:** `src/utils/geminiParser.ts`
+
+```typescript
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+export async function parseWithGemini(
+  text: string,
+  documentType: 'resume' | 'job_description',
+  fileName: string
+): Promise<ParsedDocument | ParsedResume> {
+  // Validation
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_new_api_key_here') {
+    throw new Error('Gemini API key is not configured');
+  }
+
+  // API call
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    }
+  );
+
+  // Parse and return structured data
+}
+```
 
 ---
 
 ## Document Parsing Pipeline
 
-### Text Extraction
+### Step 1: File Upload
 
-**PDF Files**:
 ```typescript
-import pdf from 'pdf-parse';
-const data = await pdf(buffer);
-const text = data.text;
+// src/components/FileUpload.tsx
+const handleFiles = async (files: File[]) => {
+  const validFiles = files.filter(file => 
+    file.type === 'application/pdf' ||
+    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  );
+  
+  onFileUpload(validFiles);
+};
 ```
 
-**DOCX Files**:
+### Step 2: Text Extraction
+
 ```typescript
+// PDF
+import pdf from 'pdf-parse';
+const dataBuffer = await file.arrayBuffer();
+const data = await pdf(Buffer.from(dataBuffer));
+const text = data.text;
+
+// DOCX
 import mammoth from 'mammoth';
+const arrayBuffer = await file.arrayBuffer();
 const result = await mammoth.extractRawText({ arrayBuffer });
 const text = result.value;
 ```
 
-### AI Parsing
+### Step 3: AI Parsing
 
-**Edge Function** (`supabase/functions/parse-document/index.ts`):
+**Prompt Structure:**
 
-1. Receives document text and type
-2. Constructs prompt based on type
-3. Calls OpenAI API (GPT-4o-mini)
-4. Parses JSON response
-5. Validates and normalizes data
-6. Returns structured data
+```typescript
+const prompt = `
+Extract the following information from this ${documentType}:
 
-**Prompt Engineering**:
-- Resume: Extract name, email, phone, skills, experience, education
-- Job Description: Extract title, skills, experience, responsibilities
-- Emphasizes accuracy and completeness
-- Handles edge cases (nested arrays, missing fields)
+${documentType === 'resume' ? `
+- Full Name
+- Email Address
+- Phone Number
+- Skills (technical and soft skills)
+- Years of Experience
+- Education
+` : `
+- Job Title
+- Required Skills
+- Required Experience (years)
+- Responsibilities
+`}
 
-**Error Handling**:
-- Retry logic with exponential backoff
-- Rate limit handling
-- Validation of AI responses
-- Fallback for malformed data
+Document text:
+${text}
+
+Return JSON format only.
+`;
+```
+
+### Step 4: Retry Logic with Exponential Backoff
+
+```typescript
+async function parseWithRetry(text: string, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await parseWithGemini(text, documentType, fileName);
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      
+      // Exponential backoff
+      const delay = Math.pow(2, attempt) * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+```
+
+### Step 5: Data Validation & Cleaning
+
+```typescript
+function validateParsedData(data: any): ParsedResume {
+  return {
+    name: data.name || 'Unknown',
+    email: validateEmail(data.email) || '',
+    phone: formatPhone(data.phone) || '',
+    skills: Array.isArray(data.skills) ? data.skills.filter(Boolean) : [],
+    experience: extractYears(data.experience) || '0',
+    education: data.education || ''
+  };
+}
+```
 
 ---
 
 ## Matching Algorithm
 
-### Skill Matching
+### Skills Matching Implementation
 
-**Location**: `src/pages/Index.tsx` - `calculateMatchPercentage()`
-
-**Algorithm Steps**:
-
-1. **Normalization**:
-   ```typescript
-   const normalized = skills.map(s => s.toLowerCase().trim());
-   ```
-
-2. **Exact Matching**:
-   - Direct string comparison
-   - Case-insensitive
-
-3. **Partial Matching**:
-   - Multi-word skills: Check if all words present
-   - Substring matching for compound skills
-
-4. **Technology Equivalents**:
-   ```typescript
-   const equivalents = [
-     ['sql', 'mysql', 'postgresql', 'ms sql'],
-     ['aws', 'amazon web services'],
-     ['react', 'react.js'],
-     // ... more groups
-   ];
-   ```
-
-5. **Percentage Calculation**:
-   ```typescript
-   percentage = (matchedSkills / totalRequiredSkills) * 100
-   ```
-
-### Experience Matching
+**File:** `src/pages/Index.tsx`
 
 ```typescript
-const candidateExp = parseInt(candidate.experience || '0');
-const jdExp = parseInt(jd.experience || '0');
-const qualified = candidateExp >= jdExp;
+function calculateMatchPercentage(
+  candidateSkills: string[],
+  requiredSkills: string[]
+): number {
+  if (!requiredSkills.length || !candidateSkills.length) return 0;
+
+  // Normalize skills
+  const normalizedRequired = requiredSkills
+    .filter(skill => typeof skill === 'string')
+    .map(skill => skill.toLowerCase().trim());
+  
+  const normalizedCandidate = candidateSkills
+    .filter(skill => typeof skill === 'string')
+    .map(skill => skill.toLowerCase().trim());
+
+  const matchedSkills = new Map<string, boolean>();
+  let matchCount = 0;
+
+  // 1. Exact matches
+  for (const required of normalizedRequired) {
+    if (normalizedCandidate.includes(required)) {
+      matchCount++;
+      matchedSkills.set(required, true);
+    }
+  }
+
+  // 2. Partial matches (multi-word skills)
+  for (const required of normalizedRequired) {
+    if (matchedSkills.has(required)) continue;
+    
+    if (required.includes(' ')) {
+      const parts = required.split(' ');
+      if (normalizedCandidate.some(candidate =>
+        parts.every(part => candidate.includes(part))
+      )) {
+        matchCount++;
+        matchedSkills.set(required, true);
+      }
+    }
+  }
+
+  // 3. Substantial matches (substring matching)
+  for (const required of normalizedRequired) {
+    if (matchedSkills.has(required)) continue;
+    
+    for (const candidate of normalizedCandidate) {
+      const isMatch = 
+        candidate.includes(` ${required} `) ||
+        candidate.startsWith(`${required} `) ||
+        candidate.endsWith(` ${required}`) ||
+        candidate === required;
+      
+      if (isMatch) {
+        matchCount++;
+        matchedSkills.set(required, true);
+        break;
+      }
+    }
+  }
+
+  // 4. Technology equivalents
+  const equivalents = [
+    ['sql', 'mysql', 'postgresql', 'ms sql', 'sql server'],
+    ['aws', 'amazon web services'],
+    ['react', 'react.js'],
+    ['vue', 'vue.js'],
+    ['node', 'node.js'],
+    // ... more equivalents
+  ];
+
+  for (const required of normalizedRequired) {
+    if (matchedSkills.has(required)) continue;
+    
+    for (const group of equivalents) {
+      if (group.includes(required)) {
+        const hasEquivalent = normalizedCandidate.some(candidate =>
+          group.some(equiv => candidate.includes(equiv))
+        );
+        if (hasEquivalent) {
+          matchCount++;
+          matchedSkills.set(required, true);
+          break;
+        }
+      }
+    }
+  }
+
+  return Math.round((matchCount / normalizedRequired.length) * 100);
+}
 ```
 
-### Result Classification
+### Qualification Determination
 
-- **Select** (Green): 70%+ match
-- **Hold** (Yellow): 40-69% match
-- **Reject** (Red): <40% match
+```typescript
+function getSkillResult(percentage: number): string {
+  if (percentage >= 80) return "Highly Qualified";
+  if (percentage >= 50) return "Qualified";
+  return "Not Qualified";
+}
 
----
-
-## Performance Considerations
-
-### Optimization Strategies
-
-1. **React Query Caching**:
-   - Parsing history cached
-   - User role cached
-   - Automatic refetch intervals
-
-2. **Batch Processing**:
-   - Files processed in batches
-   - Maximum 100 files per batch
-   - Progress tracking
-
-3. **Lazy Loading**:
-   - Components loaded on demand
-   - Code splitting with Vite
-
-4. **Database Indexes**:
-   - Primary keys indexed
-   - Foreign keys indexed
-   - Consider adding indexes on `user_id`, `created_at`
-
-5. **Edge Function Optimization**:
-   - Retry logic prevents unnecessary calls
-   - Exponential backoff for rate limits
-   - Efficient prompt construction
-
-### Limitations
-
-- Maximum 10 job descriptions
-- Maximum 25 resumes
-- Maximum 100 files per batch
-- Parsing history auto-refresh: 5 seconds
-
----
-
-## Security Implementation
-
-### Row Level Security (RLS)
-
-**Policies** (conceptual):
-```sql
--- Users can only see their own parsing history
-CREATE POLICY "user_own_history"
-ON parsing_history FOR SELECT
-USING (auth.uid() = user_id);
-
--- Users can only insert their own records
-CREATE POLICY "user_insert_own"
-ON parsing_history FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+function getExperienceResult(
+  candidateExp: string,
+  requiredExp: string
+): string {
+  const candidate = parseInt(candidateExp) || 0;
+  const required = parseInt(requiredExp) || 0;
+  return candidate >= required ? "Qualified" : "Not Qualified";
+}
 ```
-
-### Authentication Security
-
-- JWT tokens managed by Supabase
-- Session stored securely
-- Automatic token refresh
-- Secure password handling
-
-### API Security
-
-- Edge Functions require authentication
-- API keys stored in environment variables
-- CORS configured properly
-- Input validation on all endpoints
-
-### Data Validation
-
-- File type validation
-- File size limits
-- Input sanitization
-- Type checking with TypeScript
 
 ---
 
@@ -681,213 +582,388 @@ WITH CHECK (auth.uid() = user_id);
 
 ### Environment Variables
 
-**Frontend** (`.env`):
-```env
-VITE_SUPABASE_URL=https://[project-ref].supabase.co
-VITE_SUPABASE_ANON_KEY=[anon-key]
-```
-
-**Edge Function** (Supabase Secrets):
+**Production `.env`:**
 ```bash
-supabase secrets set OPENAI_API_KEY=[openai-key]
+VITE_GEMINI_API_KEY=your_production_api_key
 ```
 
 ### Build Process
 
 ```bash
-# Development build
-npm run build:dev
+# Install dependencies
+npm install
 
-# Production build
+# Build for production
 npm run build
+
+# Output directory: dist/
 ```
 
-### Supabase Deployment
+### Supabase Configuration
 
-1. **Database**:
-   - Run migrations from `database_queries.sql`
-   - Configure RLS policies
-   - Set up triggers if needed
+**Required Settings:**
+1. **Database URL**: Configure in Supabase dashboard
+2. **Anon Key**: Public key for client-side operations
+3. **RLS Policies**: Must be enabled on all tables
+4. **Triggers**: Ensure user profile trigger is active
 
-2. **Edge Functions**:
-   ```bash
-   supabase functions deploy parse-document
-   ```
+### Security Checklist
 
-3. **Frontend**:
-   - Build: `npm run build`
-   - Deploy to hosting (Vercel, Netlify, etc.)
-   - Configure environment variables
+- [ ] Environment variables set
+- [ ] API keys are valid and not exposed
+- [ ] RLS policies enabled on all tables
+- [ ] HTTPS enforced
+- [ ] CORS configured properly
+- [ ] Database backups enabled
+- [ ] Error logging configured
 
 ---
 
-## Error Handling
+## Troubleshooting
 
-### Error Types
+### Database Issues
 
-1. **Authentication Errors**:
-   - Invalid credentials
-   - Session expired
-   - Unauthorized access
+#### Issue: 409 Conflict on History Insert
 
-2. **Parsing Errors**:
-   - Invalid file format
-   - Corrupted files
-   - API failures
-   - Rate limiting
+**Cause:** Missing user profile (foreign key violation)
 
-3. **Database Errors**:
-   - Connection failures
-   - RLS violations
-   - Constraint violations
+**Solution:**
+```sql
+-- Check if profile exists
+SELECT * FROM profiles WHERE id = '<user-id>';
 
-4. **Validation Errors**:
-   - File size exceeded
-   - File count exceeded
-   - Missing required data
+-- Create profile if missing
+INSERT INTO profiles (id, email)
+SELECT id, email FROM auth.users
+WHERE id = '<user-id>';
+```
 
-### Error Handling Strategy
+#### Issue: RLS Blocking Queries
+
+**Diagnosis:**
+```sql
+-- Check RLS policies
+SELECT * FROM pg_policies WHERE tablename = 'parsing_history';
+
+-- Test policy
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '<user-id>';
+SELECT * FROM parsing_history;
+```
+
+### API Issues
+
+#### Issue: Gemini API 400 Error
+
+**Causes:**
+1. Invalid API key
+2. Malformed request
+3. Rate limit exceeded
+
+**Solutions:**
+```typescript
+// Validate API key
+if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_new_api_key_here') {
+  throw new Error('Invalid API key');
+}
+
+// Add rate limiting
+await new Promise(resolve => setTimeout(resolve, 1000));
+```
+
+#### Issue: Supabase Connection Failed
+
+**Diagnosis:**
+```typescript
+// Test connection
+const { data, error } = await supabase.from('profiles').select('*').limit(1);
+console.log('Connection test:', { data, error });
+```
+
+### Performance Issues
+
+#### Slow Parsing
+
+**Optimizations:**
+1. Batch processing with concurrency limits
+2. Parallel processing of independent files
+3. Caching frequently used data
 
 ```typescript
-try {
-  // Operation
-} catch (error: any) {
-  console.error('Error:', error);
-  toast({
-    title: "Error",
-    description: error.message,
-    variant: "destructive",
-  });
+// Process in batches of 5
+const BATCH_SIZE = 5;
+for (let i = 0; i < files.length; i += BATCH_SIZE) {
+  const batch = files.slice(i, i + BATCH_SIZE);
+  await Promise.all(batch.map(file => parseDocument(file)));
 }
 ```
 
-### User Feedback
+#### Database Query Optimization
 
-- Toast notifications for errors
-- Loading states during operations
-- Validation messages
-- Error boundaries (recommended)
+**Indexes:**
+```sql
+-- Ensure indexes exist
+CREATE INDEX IF NOT EXISTS idx_parsing_history_user_id 
+ON parsing_history(user_id);
 
----
-
-## Testing Strategy
-
-### Recommended Tests
-
-1. **Unit Tests**:
-   - Matching algorithm
-   - Utility functions
-   - Data transformations
-
-2. **Integration Tests**:
-   - API calls
-   - Database operations
-   - Authentication flow
-
-3. **E2E Tests**:
-   - Complete user workflows
-   - File upload and parsing
-   - Report generation
-
-### Testing Tools
-
-- **Jest** - Unit testing
-- **React Testing Library** - Component testing
-- **Playwright/Cypress** - E2E testing
-- **MSW** - API mocking
+CREATE INDEX IF NOT EXISTS idx_parsing_history_created_at 
+ON parsing_history(created_at DESC);
+```
 
 ---
 
-## API Rate Limits
+## Migration History
 
-### OpenAI API
+### Migration 1: `fix_is_admin_search_path`
 
-- Model: GPT-4o-mini
-- Rate limits: Varies by tier
-- Retry logic: Exponential backoff (5 retries)
-- Max tokens: 2048 per request
+**Date:** 2025-12-31  
+**Purpose:** Security fix for function search_path
 
-### Supabase
+```sql
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = (SELECT auth.uid())
+    AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp;
+```
 
-- Database: Standard Supabase limits
-- Edge Functions: 60s timeout
-- Auth: Standard limits
+### Migration 2: `add_foreign_key_indexes`
 
----
+**Date:** 2025-12-31  
+**Purpose:** Performance optimization
 
-## Monitoring & Logging
+```sql
+CREATE INDEX IF NOT EXISTS idx_parsing_history_user_id 
+ON parsing_history(user_id);
 
-### Logging Points
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_id 
+ON user_roles(user_id);
+```
 
-1. **Frontend**:
-   - Console logs for debugging
-   - Error logging
-   - User actions
+### Migration 3: `optimize_rls_policies`
 
-2. **Edge Function**:
-   - Request/response logging
-   - Error tracking
-   - Performance metrics
+**Date:** 2025-12-31  
+**Purpose:** RLS policy performance
 
-3. **Database**:
-   - Query logs (via Supabase dashboard)
-   - Connection logs
-   - Performance metrics
+```sql
+-- Changed from: auth.uid() = user_id
+-- To: (SELECT auth.uid()) = user_id
+-- Prevents re-evaluation for each row
+```
 
-### Recommended Monitoring
+### Migration 4: `fix_profiles_and_history`
 
-- Supabase Dashboard for database metrics
-- Edge Function logs in Supabase dashboard
-- Browser DevTools for frontend debugging
-- Error tracking service (Sentry, etc.)
+**Date:** 2025-12-31  
+**Purpose:** Auto-create user profiles
 
----
+```sql
+-- Create missing profiles
+INSERT INTO public.profiles (id, email)
+SELECT id, email FROM auth.users
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.profiles WHERE profiles.id = auth.users.id
+);
 
-## Future Enhancements
-
-### Potential Improvements
-
-1. **Performance**:
-   - Implement virtual scrolling for large lists
-   - Add database query optimization
-   - Implement caching strategies
-
-2. **Features**:
-   - Advanced filtering and search
-   - Bulk operations
-   - Email notifications
-   - API endpoints for external integrations
-
-3. **UX**:
-   - Real-time progress updates
-   - Better error messages
-   - Accessibility improvements
-
-4. **Security**:
-   - Enhanced RLS policies
-   - Audit logging
-   - Rate limiting
+-- Add trigger for auto-profile creation
+CREATE FUNCTION public.handle_new_user() ...
+CREATE TRIGGER on_auth_user_created ...
+```
 
 ---
 
-## Support & Maintenance
+## API Reference
 
-### Documentation
+### Supabase Client Operations
 
-- `README.md` - User guide
-- `TECHNICAL_DOCUMENTATION.md` - This file
-- `DATABASE_QUERIES.md` - Query documentation
-- `database_queries.sql` - SQL schema and queries
+#### Authentication
 
-### Code Organization
+```typescript
+// Sign up
+const { data, error } = await supabase.auth.signUp({
+  email: string,
+  password: string
+});
 
-- Components: Feature-based organization
-- Utils: Reusable functions
-- Types: Centralized type definitions
-- Hooks: Custom React hooks
+// Sign in
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: string,
+  password: string
+});
+
+// Get current user
+const { data: { user } } = await supabase.auth.getUser();
+
+// Sign out
+await supabase.auth.signOut();
+```
+
+#### Database Operations
+
+```typescript
+// Insert history
+const { data, error } = await supabase
+  .from('parsing_history')
+  .insert({
+    document_type: 'resume',
+    parsed_content: {...},
+    user_id: user.id
+  });
+
+// Fetch history
+const { data, error } = await supabase
+  .from('parsing_history')
+  .select('*')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: false });
+
+// Delete history
+const { error } = await supabase
+  .from('parsing_history')
+  .delete()
+  .eq('id', recordId);
+```
 
 ---
 
-**Last Updated**: 2025-01-31
-**Version**: 1.0.0
+## Performance Metrics
+
+### Target Metrics
+
+- **Page Load**: < 2 seconds
+- **Document Parsing**: 3-10 seconds per document
+- **Batch Processing**: ~30 seconds for 10 documents
+- **Report Generation**: < 5 seconds
+- **History Load**: < 1 second
+
+### Monitoring
+
+```typescript
+// Add performance timing
+console.time('parsing');
+await parseDocument(file);
+console.timeEnd('parsing');
+```
+
+---
+
+## Development Guidelines
+
+### Code Structure
+
+```
+src/
+├── components/          # React components
+│   ├── ui/             # shadcn/ui components
+│   ├── FileUpload.tsx
+│   ├── DocumentParser.tsx
+│   └── ParsingHistory.tsx
+├── pages/              # Page components
+│   ├── Index.tsx
+│   └── Auth.tsx
+├── integrations/       # External service integrations
+│   └── supabase/
+│       ├── client.ts
+│       └── types.ts
+├── utils/              # Utility functions
+│   ├── geminiParser.ts
+│   └── colorCoding.ts
+├── types/              # TypeScript type definitions
+│   └── index.ts
+└── hooks/              # Custom React hooks
+    └── use-toast.ts
+```
+
+### TypeScript Types
+
+```typescript
+// src/types/index.ts
+export interface ParsedResume {
+  name: string;
+  email: string;
+  phone: string;
+  skills: string[];
+  experience: string;
+  education: string;
+}
+
+export interface ParsedDocument {
+  title: string;
+  skills: string[];
+  experience: string;
+  responsibilities: string[];
+}
+
+export interface Candidate extends ParsedResume {
+  matchPercentage: number;
+  fileName: string;
+  positionMatches: PositionMatch[];
+  bestMatchingPosition: string;
+}
+
+export interface PositionMatch {
+  title: string;
+  matchPercentage: number;
+  experience: string;
+  skills: string[];
+}
+```
+
+---
+
+## Appendix
+
+### Useful SQL Queries
+
+```sql
+-- View all users with roles
+SELECT 
+  p.email,
+  ur.role,
+  p.created_at
+FROM profiles p
+LEFT JOIN user_roles ur ON ur.user_id = p.id;
+
+-- Count parsing history by user
+SELECT 
+  p.email,
+  COUNT(ph.id) as total_reports
+FROM profiles p
+LEFT JOIN parsing_history ph ON ph.user_id = p.id
+GROUP BY p.email;
+
+-- Recent parsing activity
+SELECT 
+  p.email,
+  ph.document_type,
+  ph.created_at
+FROM parsing_history ph
+JOIN profiles p ON p.id = ph.user_id
+ORDER BY ph.created_at DESC
+LIMIT 10;
+```
+
+### Environment Setup Checklist
+
+- [ ] Node.js installed (v18+)
+- [ ] npm/yarn installed
+- [ ] Supabase project created
+- [ ] Database tables created
+- [ ] RLS policies enabled
+- [ ] Triggers installed
+- [ ] Gemini API key obtained
+- [ ] `.env` file configured
+- [ ] Dependencies installed
+- [ ] Development server running
+
+---
+
+**Document Version:** 1.0.0  
+**Last Updated:** December 31, 2025  
+**Maintained By:** Development Team
 
