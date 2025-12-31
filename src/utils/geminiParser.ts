@@ -1,6 +1,8 @@
 import { ParsedDocument, ParsedResume } from '@/types';
 
-const GEMINI_API_KEY = 'AIzaSyDV5FVKTi7WUPooJv5RPKizLqsJBfhCDwE';
+// IMPORTANT: Get a new Gemini API key from https://makersuite.google.com/app/apikey
+// The previous key was leaked and has been revoked
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 interface GeminiResponse {
@@ -466,6 +468,10 @@ export async function parseWithGemini(text: string, documentType: 'resume' | 'jo
         Job description content:
         ${text}
       `;
+    }
+
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY environment variable.');
     }
 
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {

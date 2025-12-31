@@ -319,52 +319,20 @@ export const parseDocument = async (file: File, type: 'resume' | 'jd'): Promise<
     console.log('Local skills extraction found:', localSkills.length, 'skills:', localSkills);
     
     let parsedData = null;
-    let retries = 3;
     
-    // Try to parse with Supabase function first
-    while (retries > 0) {
-      try {
-        console.log(`Attempt ${4-retries}/3: Calling Supabase function...`);
-        
-        const { data, error } = await supabase.functions.invoke('parse-document', {
-          body: { documentText: text, documentType: type }
-        });
-
-        if (error) {
-          console.error('Supabase function error:', error);
-          throw error;
-        }
-
-        if (!data) {
-          throw new Error('Empty response from Supabase function');
-        }
-
-        console.log('Successfully parsed document with Supabase function:', data);
-        parsedData = data;
-        break;
-      } catch (error) {
-        console.error(`Error in parse attempt ${4-retries}/3:`, error);
-        retries--;
-        if (retries > 0) {
-          console.log(`Retrying in ${Math.pow(2, 3 - retries)} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, 3 - retries) * 1000));
-        }
+    // Try to parse with Gemini API first (Edge Function has config issues)
+    try {
+      console.log('Parsing with Gemini API for:', file.name);
+      const geminiResult = await parseWithGemini(text, type === 'jd' ? 'job_description' : 'resume', fileName);
+      
+      if (geminiResult) {
+        console.log('Successfully parsed document with Gemini API:', geminiResult);
+        parsedData = geminiResult;
       }
-    }
-    
-    // If Supabase function failed, try Gemini API
-    if (!parsedData) {
-      try {
-        console.log('Supabase function failed, trying Gemini API for:', file.name);
-        const geminiResult = await parseWithGemini(text, type === 'jd' ? 'job_description' : 'resume', fileName);
-        
-        if (geminiResult) {
-          console.log('Successfully parsed document with Gemini API:', geminiResult);
-          parsedData = geminiResult;
-        }
-      } catch (error) {
-        console.error('Gemini API parsing error:', error);
-      }
+    } catch (error) {
+      console.error('Gemini API parsing error:', error);
+      // Fall back to basic extraction if Gemini fails
+      console.log('Falling back to basic extraction');
     }
     
     // Normalize skills to always be a proper array

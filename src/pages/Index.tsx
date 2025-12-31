@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PositionMatch, ParsedDocument, ParsedResume, Candidate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { LogOut, Play, Loader } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { getSkillColor, getSkillResult, type SkillResult } from '@/utils/colorCoding';
@@ -25,6 +25,7 @@ const Index = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [debugCounts, setDebugCounts] = useState({
     jdCount: 0,
@@ -403,35 +404,49 @@ const Index = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      await supabase.from('parsing_history').insert({
-        document_type: 'resume',
-        parsed_content: {
-          jobDescriptions: jobDescriptions.map(jd => ({
-            title: jd.title,
-            skills: jd.skills,
-            experience: jd.experience || '',
-            responsibilities: jd.responsibilities || []
-          })),
-          candidates: candidates.map(candidate => ({
-            name: candidate.name,
-            email: candidate.email,
-            phone: candidate.phone,
-            skills: candidate.skills,
-            experience: candidate.experience,
-            education: candidate.education,
-            matchPercentage: candidate.matchPercentage,
-            fileName: candidate.fileName,
-            bestMatchingPosition: candidate.bestMatchingPosition,
-            positionMatches: candidate.positionMatches.map(match => ({
-              title: match.title,
-              matchPercentage: match.matchPercentage,
-              experience: match.experience || '',
-              skills: match.skills || []
+      // Save parsing history - wrapped in try-catch to not fail the entire operation
+      try {
+        const { error: insertError } = await supabase.from('parsing_history').insert({
+          document_type: 'resume',
+          parsed_content: {
+            jobDescriptions: jobDescriptions.map(jd => ({
+              title: jd.title,
+              skills: jd.skills,
+              experience: jd.experience || '',
+              responsibilities: jd.responsibilities || []
+            })),
+            candidates: candidates.map(candidate => ({
+              name: candidate.name,
+              email: candidate.email,
+              phone: candidate.phone,
+              skills: candidate.skills,
+              experience: candidate.experience,
+              education: candidate.education,
+              matchPercentage: candidate.matchPercentage,
+              fileName: candidate.fileName,
+              bestMatchingPosition: candidate.bestMatchingPosition,
+              positionMatches: candidate.positionMatches.map(match => ({
+                title: match.title,
+                matchPercentage: match.matchPercentage,
+                experience: match.experience || '',
+                skills: match.skills || []
+              }))
             }))
-          }))
-        },
-        user_id: user.id
-      });
+          },
+          user_id: user.id
+        });
+        
+        if (insertError) {
+          console.error('Error saving parsing history:', insertError);
+        } else {
+          console.log('Parsing history saved successfully');
+          // Invalidate the history cache to trigger a refresh
+          queryClient.invalidateQueries({ queryKey: ['parsing-history'] });
+        }
+      } catch (historyError) {
+        // Silently fail - history is not critical for report generation
+        console.error('Failed to save history:', historyError);
+      }
 
       const reportData = jobDescriptions.flatMap((jd, jdIndex) => 
         candidates.map((candidate, candidateIndex) => {
